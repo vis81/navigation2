@@ -118,13 +118,19 @@ typename AnalyticExpansion<NodeT>::NodePtr AnalyticExpansion<NodeT>::tryAnalytic
 
             float score = 0.0;
             float normalized_cost = 0.0;
-            // Analytic expansions are consistently spaced
-            const float distance = hypotf(
-              expansion[1].proposed_coords.x - expansion[0].proposed_coords.x,
-              expansion[1].proposed_coords.y - expansion[0].proposed_coords.y);
             const float & weight = expansion[0].node->motion_table.cost_penalty;
-            for (auto iter = expansion.begin(); iter != expansion.end(); ++iter) {
-              normalized_cost = iter->node->getCost() / 252.0f;
+            // Accumulate each sample's own spacing. Analytic expansions are
+            // evenly spaced in *arc length*, but not in Euclidean distance:
+            // across a cusp the chord between two consecutive samples collapses
+            // towards zero. Extrapolating the first gap across the whole
+            // expansion therefore scores a path that begins with a reversal at a
+            // fraction of its true length, and the refinement loop below selects
+            // it over a shorter cusp-free alternative.
+            for (unsigned int i = 1; i < expansion.size(); ++i) {
+              const float distance = hypotf(
+                expansion[i].proposed_coords.x - expansion[i - 1].proposed_coords.x,
+                expansion[i].proposed_coords.y - expansion[i - 1].proposed_coords.y);
+              normalized_cost = expansion[i].node->getCost() / 252.0f;
               // Search's Traversal Cost Function
               score += distance * (1.0 + weight * normalized_cost);
             }
