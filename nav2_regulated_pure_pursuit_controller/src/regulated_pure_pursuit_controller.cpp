@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <limits>
 #include <memory>
@@ -245,9 +246,31 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
     rotateToHeading(linear_vel, angular_vel, angle_to_heading, speed);
   } else {
     is_rotating_to_heading_ = false;
+    // Cost used for regulation: the robot's own cell, or the worst cell along
+    // the path up to cost_lookahead_dist so we brake before a pinch, not in it.
+    double pose_cost = collision_checker_->costAtPose(
+      pose.pose.position.x, pose.pose.position.y);
+    if (params_->cost_lookahead_dist > 0.0) {
+      const double yaw = tf2::getYaw(pose.pose.orientation);
+      const double cy = std::cos(yaw), sy = std::sin(yaw);
+      double s = 0.0;
+      for (size_t i = 1; i < transformed_plan.poses.size() && s < params_->cost_lookahead_dist;
+        ++i)
+      {
+        const auto & a = transformed_plan.poses[i - 1].pose.position;
+        const auto & b = transformed_plan.poses[i].pose.position;
+        s += std::hypot(b.x - a.x, b.y - a.y);
+        // transformed_plan is in the robot frame; costAtPose wants the costmap frame
+        const double wx = pose.pose.position.x + b.x * cy - b.y * sy;
+        const double wy = pose.pose.position.y + b.x * sy + b.y * cy;
+        unsigned int mx, my;
+        if (costmap_->worldToMap(wx, wy, mx, my)) {  // points off the local map are ignored
+          pose_cost = std::max(pose_cost, static_cast<double>(costmap_->getCost(mx, my)));
+        }
+      }
+    }
     applyConstraints(
-      regulation_curvature, speed,
-      collision_checker_->costAtPose(pose.pose.position.x, pose.pose.position.y), transformed_plan,
+      regulation_curvature, speed, pose_cost, transformed_plan,
       linear_vel, x_vel_sign);
 
     if (cancelling_) {
