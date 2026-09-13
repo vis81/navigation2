@@ -176,6 +176,22 @@ protected:
     geometry_msgs::msg::Pose2D init_pose = pose2d;
     bool fetch_data = true;
 
+    // A footprint corner resting on a lethal cell is the normal state after
+    // the controller has stopped for a collision ahead, and the padded
+    // footprint reaches a couple of cm into the wall's marks. Refusing to
+    // move because of cells we already occupy left the robot unable to back
+    // out of contact into free space - the deadlock this behaviour exists
+    // to break. So: if the start pose is in contact, contact is tolerated
+    // for the whole commanded distance - a car that scraped along a wall
+    // corner has the marks inside its padded footprint's *side* for 20 cm
+    // or more, and 10 cm was not enough. The wall's marks are not a clean
+    // edge either (a corner clipping a diagonal wall reads lethal, free,
+    // lethal over 5 cm), so there is no "came free" reset. A backup is
+    // 0.3 m at 0.25 m/s: the worst case is a slow bump, against a robot
+    // that otherwise never moves again.
+    const double kEscapeDist = abs(command_x_);
+    bool escaping = false;
+
     while (cycle_count < max_cycle_count) {
       sim_position_change = cmd_vel.linear.x * (cycle_count / this->cycle_frequency_);
       pose2d.x = init_pose.x + sim_position_change * cos(init_pose.theta);
@@ -186,10 +202,18 @@ protected:
         break;
       }
 
-      if (!this->local_collision_checker_->isCollisionFree(pose2d, fetch_data)) {
+      const bool free = this->local_collision_checker_->isCollisionFree(pose2d, fetch_data);
+      fetch_data = false;
+      if (!free) {
+        if (sim_position_change == 0.0) {
+          escaping = true;              // started in contact
+          continue;
+        }
+        if (escaping && abs(sim_position_change) <= kEscapeDist) {
+          continue;                     // still leaving the cells we started in
+        }
         return false;
       }
-      fetch_data = false;
     }
     return true;
   }
