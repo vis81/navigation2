@@ -31,6 +31,7 @@
 #include "nav2_regulated_pure_pursuit_controller/path_handler.hpp"
 #include "nav2_regulated_pure_pursuit_controller/collision_checker.hpp"
 #include "nav2_regulated_pure_pursuit_controller/parameter_handler.hpp"
+#include "nav2_regulated_pure_pursuit_controller/dynamic_window_pure_pursuit_functions.hpp"
 #include "nav2_regulated_pure_pursuit_controller/regulation_functions.hpp"
 
 namespace nav2_regulated_pure_pursuit_controller
@@ -212,6 +213,7 @@ protected:
   std::string plugin_name_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   nav2_costmap_2d::Costmap2D * costmap_;
+  geometry_msgs::msg::Twist last_command_velocity_;
   rclcpp::Logger logger_ {rclcpp::get_logger("RegulatedPurePursuitController")};
 
   Parameters * params_;

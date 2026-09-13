@@ -53,6 +53,13 @@ struct Parameters
   double curvature_lookahead_dist;
   double cost_lookahead_dist;
   double path_curvature_lookahead_dist;
+  // Dynamic Window Pure Pursuit (ported from Nav2 main, #5783): velocity
+  // and acceleration limits applied inside the controller.
+  bool use_dynamic_window;
+  double min_linear_vel;
+  double max_angular_vel, min_angular_vel;
+  double max_linear_accel, max_linear_decel;
+  double max_angular_decel;
   bool use_rotate_to_heading;
   double max_angular_accel;
   bool use_cancel_deceleration;

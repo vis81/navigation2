@@ -85,6 +85,22 @@ ParameterHandler::ParameterHandler(
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".path_curvature_lookahead_dist", rclcpp::ParameterValue(0.0));
   declare_parameter_if_not_declared(
+    node, plugin_name_ + ".use_dynamic_window", rclcpp::ParameterValue(false));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".min_linear_vel", rclcpp::ParameterValue(0.0));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".max_angular_vel", rclcpp::ParameterValue(1.8));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".min_angular_vel", rclcpp::ParameterValue(-1.8));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".max_linear_accel", rclcpp::ParameterValue(2.5));
+  // Upstream convention: the decel limits are NEGATIVE (the window's lower
+  // bound is v + decel * dt). A positive value inverts the window.
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".max_linear_decel", rclcpp::ParameterValue(-2.5));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".max_angular_decel", rclcpp::ParameterValue(-3.2));
+  declare_parameter_if_not_declared(
     node, plugin_name_ + ".use_rotate_to_heading", rclcpp::ParameterValue(true));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".rotate_to_heading_min_angle", rclcpp::ParameterValue(0.785));
@@ -161,6 +177,13 @@ ParameterHandler::ParameterHandler(
   node->get_parameter(plugin_name_ + ".cost_lookahead_dist", params_.cost_lookahead_dist);
   node->get_parameter(
     plugin_name_ + ".path_curvature_lookahead_dist", params_.path_curvature_lookahead_dist);
+  node->get_parameter(plugin_name_ + ".use_dynamic_window", params_.use_dynamic_window);
+  node->get_parameter(plugin_name_ + ".min_linear_vel", params_.min_linear_vel);
+  node->get_parameter(plugin_name_ + ".max_angular_vel", params_.max_angular_vel);
+  node->get_parameter(plugin_name_ + ".min_angular_vel", params_.min_angular_vel);
+  node->get_parameter(plugin_name_ + ".max_linear_accel", params_.max_linear_accel);
+  node->get_parameter(plugin_name_ + ".max_linear_decel", params_.max_linear_decel);
+  node->get_parameter(plugin_name_ + ".max_angular_decel", params_.max_angular_decel);
   node->get_parameter(plugin_name_ + ".use_rotate_to_heading", params_.use_rotate_to_heading);
   node->get_parameter(
     plugin_name_ + ".rotate_to_heading_min_angle", params_.rotate_to_heading_min_angle);
@@ -255,6 +278,18 @@ ParameterHandler::dynamicParametersCallback(
         params_.cost_lookahead_dist = parameter.as_double();
       } else if (name == plugin_name_ + ".path_curvature_lookahead_dist") {
         params_.path_curvature_lookahead_dist = parameter.as_double();
+      } else if (name == plugin_name_ + ".min_linear_vel") {
+        params_.min_linear_vel = parameter.as_double();
+      } else if (name == plugin_name_ + ".max_angular_vel") {
+        params_.max_angular_vel = parameter.as_double();
+      } else if (name == plugin_name_ + ".min_angular_vel") {
+        params_.min_angular_vel = parameter.as_double();
+      } else if (name == plugin_name_ + ".max_linear_accel") {
+        params_.max_linear_accel = parameter.as_double();
+      } else if (name == plugin_name_ + ".max_linear_decel") {
+        params_.max_linear_decel = parameter.as_double();
+      } else if (name == plugin_name_ + ".max_angular_decel") {
+        params_.max_angular_decel = parameter.as_double();
       } else if (name == plugin_name_ + ".max_allowed_time_to_collision_up_to_carrot") {
         params_.max_allowed_time_to_collision_up_to_carrot = parameter.as_double();
       } else if (name == plugin_name_ + ".cost_scaling_dist") {
@@ -283,6 +318,8 @@ ParameterHandler::dynamicParametersCallback(
         params_.use_regulated_linear_velocity_scaling = parameter.as_bool();
       } else if (name == plugin_name_ + ".use_fixed_curvature_lookahead") {
         params_.use_fixed_curvature_lookahead = parameter.as_bool();
+      } else if (name == plugin_name_ + ".use_dynamic_window") {
+        params_.use_dynamic_window = parameter.as_bool();
       } else if (name == plugin_name_ + ".use_cost_regulated_linear_velocity_scaling") {
         params_.use_cost_regulated_linear_velocity_scaling = parameter.as_bool();
       } else if (name == plugin_name_ + ".use_collision_detection") {

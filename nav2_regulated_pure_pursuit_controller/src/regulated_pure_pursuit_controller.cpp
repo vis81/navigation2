@@ -20,6 +20,7 @@
 #include <memory>
 #include <vector>
 #include <utility>
+#include <tuple>
 
 #include "angles/angles.h"
 #include "nav2_regulated_pure_pursuit_controller/regulated_pure_pursuit_controller.hpp"
@@ -96,6 +97,7 @@ void RegulatedPurePursuitController::cleanup()
 
 void RegulatedPurePursuitController::activate()
 {
+  last_command_velocity_ = geometry_msgs::msg::Twist();
   RCLCPP_INFO(
     logger_,
     "Activating controller: %s of type "
@@ -363,7 +365,30 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
     }
 
     // Apply curvature to angular velocity after constraining linear velocity
-    angular_vel = linear_vel * regulation_curvature;
+    if (!params_->use_dynamic_window) {
+      angular_vel = linear_vel * regulation_curvature;
+    } else {
+      // Dynamic Window Pure Pursuit (Nav2 main #5783): the best (v, w)
+      // reachable from the last command within the acceleration limits
+      // that still tracks the carrot. The last command stands in for the
+      // current speed (open loop), as upstream does.
+      const double regulated_linear_vel = linear_vel;
+      std::tie(linear_vel, angular_vel) =
+        dynamic_window_pure_pursuit::computeDynamicWindowVelocities(
+        last_command_velocity_,
+        params_->desired_linear_vel,
+        params_->min_linear_vel,
+        params_->max_angular_vel,
+        params_->min_angular_vel,
+        params_->max_linear_accel,
+        params_->max_linear_decel,
+        params_->max_angular_accel,
+        params_->max_angular_decel,
+        regulated_linear_vel,
+        regulation_curvature,
+        x_vel_sign,
+        control_duration_);
+    }
   }
 
   // Collision checking on this velocity heading
@@ -384,6 +409,7 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
   cmd_vel.header = pose.header;
   cmd_vel.twist.linear.x = linear_vel;
   cmd_vel.twist.angular.z = angular_vel;
+  last_command_velocity_ = cmd_vel.twist;   // open-loop "current speed" for DWPP
   return cmd_vel;
 }
 
