@@ -83,6 +83,8 @@ ParameterHandler::ParameterHandler(
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".cost_lookahead_dist", rclcpp::ParameterValue(0.0));
   declare_parameter_if_not_declared(
+    node, plugin_name_ + ".path_curvature_lookahead_dist", rclcpp::ParameterValue(0.0));
+  declare_parameter_if_not_declared(
     node, plugin_name_ + ".use_rotate_to_heading", rclcpp::ParameterValue(true));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".rotate_to_heading_min_angle", rclcpp::ParameterValue(0.785));
@@ -157,6 +159,8 @@ ParameterHandler::ParameterHandler(
     plugin_name_ + ".curvature_lookahead_dist",
     params_.curvature_lookahead_dist);
   node->get_parameter(plugin_name_ + ".cost_lookahead_dist", params_.cost_lookahead_dist);
+  node->get_parameter(
+    plugin_name_ + ".path_curvature_lookahead_dist", params_.path_curvature_lookahead_dist);
   node->get_parameter(plugin_name_ + ".use_rotate_to_heading", params_.use_rotate_to_heading);
   node->get_parameter(
     plugin_name_ + ".rotate_to_heading_min_angle", params_.rotate_to_heading_min_angle);
@@ -249,6 +253,8 @@ ParameterHandler::dynamicParametersCallback(
         params_.curvature_lookahead_dist = parameter.as_double();
       } else if (name == plugin_name_ + ".cost_lookahead_dist") {
         params_.cost_lookahead_dist = parameter.as_double();
+      } else if (name == plugin_name_ + ".path_curvature_lookahead_dist") {
+        params_.path_curvature_lookahead_dist = parameter.as_double();
       } else if (name == plugin_name_ + ".max_allowed_time_to_collision_up_to_carrot") {
         params_.max_allowed_time_to_collision_up_to_carrot = parameter.as_double();
       } else if (name == plugin_name_ + ".cost_scaling_dist") {

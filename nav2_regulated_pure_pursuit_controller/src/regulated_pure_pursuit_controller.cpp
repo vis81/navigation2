@@ -146,6 +146,68 @@ double RegulatedPurePursuitController::getLookAheadDistance(
   return lookahead_dist;
 }
 
+/**
+ * Largest curvature of the (robot-frame) path within the first `dist`
+ * metres of arc length. Curvature is measured on triples of points 0.3 m
+ * apart (Menger curvature): a Smac path is built from 10-degree heading
+ * bins, so at 0.1 m spacing every kink reads as a 0.6 m radius and the
+ * robot crawled everywhere (sim, 69% reversing); at 0.3 m a kink is a
+ * 1.7 m radius and only a real bend (Reeds-Shepp minimum 0.5 m) counts.
+ * A cusp (direction reversal) is skipped rather than counted as a bend.
+ */
+double maxPathCurvature(const nav_msgs::msg::Path & path, double dist)
+{
+  constexpr double kStep = 0.30;   // m between the points of a triple
+  std::vector<geometry_msgs::msg::Point> pts;
+  double s = 0.0, since = 0.0;
+  double px = 0.0, py = 0.0;       // previous raw segment direction
+  for (size_t i = 0; i < path.poses.size(); ++i) {
+    const auto & p = path.poses[i].pose.position;
+    if (i > 0) {
+      const auto & q = path.poses[i - 1].pose.position;
+      const double dx = p.x - q.x, dy = p.y - q.y;
+      // The window ends at a direction reversal: a shunt (a 20 cm
+      // reverse-and-forward at the robot, as a Reeds-Shepp plan often
+      // starts) straddled by a 0.3 m triple reads as a hairpin, and the
+      // crawl that follows makes every replan start with another shunt.
+      if (i > 1 && dx * px + dy * py < 0.0) {
+        break;
+      }
+      px = dx;
+      py = dy;
+      const double d = std::hypot(dx, dy);
+      s += d;
+      since += d;
+    }
+    if (pts.empty() || since >= kStep) {
+      pts.push_back(p);
+      since = 0.0;
+    }
+    if (s > dist) {
+      break;
+    }
+  }
+  double kmax = 0.0;
+  for (size_t i = 1; i + 1 < pts.size(); ++i) {
+    const auto & a = pts[i - 1];
+    const auto & b = pts[i];
+    const auto & c = pts[i + 1];
+    const double abx = b.x - a.x, aby = b.y - a.y;
+    const double bcx = c.x - b.x, bcy = c.y - b.y;
+    if (abx * bcx + aby * bcy < 0.0) {
+      continue;                              // cusp, not a bend
+    }
+    const double ab = std::hypot(abx, aby), bc = std::hypot(bcx, bcy);
+    const double ca = std::hypot(c.x - a.x, c.y - a.y);
+    if (ab < 1e-6 || bc < 1e-6 || ca < 1e-6) {
+      continue;
+    }
+    const double area2 = std::fabs(abx * bcy - aby * bcx);   // 2 * triangle area
+    kmax = std::max(kmax, 2.0 * area2 / (ab * bc * ca));
+  }
+  return kmax;
+}
+
 double calculateCurvature(geometry_msgs::msg::Point lookahead_point)
 {
   // Find distance^2 to look ahead point (carrot) in robot base frame
@@ -221,6 +283,16 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
     rotate_to_path_carrot_pose = curvature_lookahead_pose;
     regulation_curvature = calculateCurvature(curvature_lookahead_pose.pose.position);
     curvature_carrot_pub_->publish(createCarrotMsg(curvature_lookahead_pose));
+  }
+  // The chord to the carrot says nothing about a sharp bend until the
+  // carrot is past it: at 1 m/s the robot reached a 0.5 m-radius corner at
+  // full speed and braked inside it. Regulate on the sharpest bend of the
+  // path itself within a braking distance ahead, so the slow-down starts
+  // before the corner and ends when the corner is behind the window.
+  if (params_->path_curvature_lookahead_dist > 0.0) {
+    regulation_curvature = std::max(
+      regulation_curvature,
+      maxPathCurvature(transformed_plan, params_->path_curvature_lookahead_dist));
   }
 
   // Setting the velocity direction
