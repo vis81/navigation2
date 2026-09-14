@@ -48,6 +48,7 @@ void RegulatedPurePursuitController::configure(
   if (!node) {
     throw nav2_core::ControllerException("Unable to lock node!");
   }
+  clock_ = node->get_clock();
 
   costmap_ros_ = costmap_ros;
   costmap_ = costmap_ros_->getCostmap();
@@ -371,11 +372,22 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
       // Dynamic Window Pure Pursuit (Nav2 main #5783): the best (v, w)
       // reachable from the last command within the acceleration limits
       // that still tracks the carrot. The last command stands in for the
-      // current speed (open loop), as upstream does.
+      // current speed (open loop), as upstream does - except when it is
+      // stale: after a cancel or an abort the server stops the robot
+      // without asking us, so the next goal would start its window from
+      // a speed the robot no longer has and launch at full torque
+      // (4 m/s^2 commanded at a 1.7 m/s route start, bag 20260914-092940).
+      // A gap in the control stream is what tells that apart from a
+      // running goal; the odometry is the base then.
+      geometry_msgs::msg::Twist window_base = last_command_velocity_;
+      if ((clock_->now() - last_command_time_).seconds() > 0.5) {
+        window_base.linear.x = speed.linear.x;
+        window_base.angular.z = speed.angular.z;
+      }
       const double regulated_linear_vel = linear_vel;
       std::tie(linear_vel, angular_vel) =
         dynamic_window_pure_pursuit::computeDynamicWindowVelocities(
-        last_command_velocity_,
+        window_base,
         params_->desired_linear_vel,
         params_->min_linear_vel,
         params_->max_angular_vel,
@@ -410,6 +422,7 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
   cmd_vel.twist.linear.x = linear_vel;
   cmd_vel.twist.angular.z = angular_vel;
   last_command_velocity_ = cmd_vel.twist;   // open-loop "current speed" for DWPP
+  last_command_time_ = clock_->now();
   return cmd_vel;
 }
 
@@ -635,6 +648,7 @@ void RegulatedPurePursuitController::reset()
   cancelling_ = false;
   finished_cancelling_ = false;
   has_reached_xy_tolerance_ = false;
+  last_command_velocity_ = geometry_msgs::msg::Twist();
 }
 
 double RegulatedPurePursuitController::findVelocitySignChange(

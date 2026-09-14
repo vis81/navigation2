@@ -209,11 +209,13 @@ protected:
   double findVelocitySignChange(const nav_msgs::msg::Path & transformed_plan);
 
   rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
+  rclcpp::Clock::SharedPtr clock_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
   std::string plugin_name_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   nav2_costmap_2d::Costmap2D * costmap_;
   geometry_msgs::msg::Twist last_command_velocity_;
+  rclcpp::Time last_command_time_{0, 0, RCL_ROS_TIME};   // when it was issued
   rclcpp::Logger logger_ {rclcpp::get_logger("RegulatedPurePursuitController")};
 
   Parameters * params_;
