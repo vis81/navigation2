@@ -87,6 +87,8 @@ ParameterHandler::ParameterHandler(
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".use_dynamic_window", rclcpp::ParameterValue(false));
   declare_parameter_if_not_declared(
+    node, plugin_name_ + ".max_collision_check_dist", rclcpp::ParameterValue(0.0));
+  declare_parameter_if_not_declared(
     node, plugin_name_ + ".min_linear_vel", rclcpp::ParameterValue(0.0));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".max_angular_vel", rclcpp::ParameterValue(1.8));
@@ -178,6 +180,8 @@ ParameterHandler::ParameterHandler(
   node->get_parameter(
     plugin_name_ + ".path_curvature_lookahead_dist", params_.path_curvature_lookahead_dist);
   node->get_parameter(plugin_name_ + ".use_dynamic_window", params_.use_dynamic_window);
+  node->get_parameter(
+    plugin_name_ + ".max_collision_check_dist", params_.max_collision_check_dist);
   node->get_parameter(plugin_name_ + ".min_linear_vel", params_.min_linear_vel);
   node->get_parameter(plugin_name_ + ".max_angular_vel", params_.max_angular_vel);
   node->get_parameter(plugin_name_ + ".min_angular_vel", params_.min_angular_vel);
@@ -292,6 +296,8 @@ ParameterHandler::dynamicParametersCallback(
         params_.max_angular_decel = parameter.as_double();
       } else if (name == plugin_name_ + ".max_allowed_time_to_collision_up_to_carrot") {
         params_.max_allowed_time_to_collision_up_to_carrot = parameter.as_double();
+      } else if (name == plugin_name_ + ".max_collision_check_dist") {
+        params_.max_collision_check_dist = parameter.as_double();
       } else if (name == plugin_name_ + ".cost_scaling_dist") {
         params_.cost_scaling_dist = parameter.as_double();
       } else if (name == plugin_name_ + ".cost_scaling_gain") {

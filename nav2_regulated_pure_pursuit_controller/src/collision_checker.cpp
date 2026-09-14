@@ -102,7 +102,15 @@ bool CollisionChecker::isCollisionImminent(
     curr_pose.theta += projection_time * angular_vel;
 
     // check if past carrot pose, where no longer a thoughtfully valid command
-    if (hypot(curr_pose.x - robot_xy.x, curr_pose.y - robot_xy.y) > carrot_dist) {
+    // picar2: the projection is time-based, so at 1 m/s it reaches 1 m and
+    // brushes the walls of a 0.8 m corridor on every curve (0.9-0.95 m/s
+    // stalled there). max_collision_check_dist caps how far it looks,
+    // whatever the speed; 0 keeps the carrot as the only limit.
+    double dist_limit = carrot_dist;
+    if (params_->max_collision_check_dist > 0.0) {
+      dist_limit = std::min(dist_limit, params_->max_collision_check_dist);
+    }
+    if (hypot(curr_pose.x - robot_xy.x, curr_pose.y - robot_xy.y) > dist_limit) {
       break;
     }
 
