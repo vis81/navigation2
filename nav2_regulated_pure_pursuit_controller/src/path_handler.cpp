@@ -94,6 +94,7 @@ nav_msgs::msg::Path PathHandler::transformGlobalPlan(
     [&](const auto & global_plan_pose) {
       return euclidean_distance(global_plan_pose, robot_pose) > max_costmap_extent;
     });
+  plan_end_in_window_ = (transformation_end == global_plan_.poses.end());
 
   // Lambda to transform a PoseStamped from global frame to local
   auto transformGlobalPoseToLocal = [&](const auto & global_plan_pose) {

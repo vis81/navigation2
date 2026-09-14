@@ -607,10 +607,16 @@ void RegulatedPurePursuitController::applyConstraints(
   linear_vel = std::min(cost_vel, curvature_vel);
   linear_vel = std::max(linear_vel, params_->regulated_linear_scaling_min_speed);
 
-  // Apply constraint to reduce speed on approach to the final goal pose
-  linear_vel = heuristics::approachVelocityConstraint(
-    linear_vel, path, params_->min_approach_linear_velocity,
-    params_->approach_velocity_scaling_dist);
+  // Apply constraint to reduce speed on approach to the final goal pose -
+  // only once the goal is inside the local window. The path here is pruned
+  // at the costmap edge, so without this a ramp longer than half the
+  // costmap scaled the speed on every metre of every route (2.0 m ramp:
+  // 0.9 m/s at a 1.2 setting).
+  if (path_handler_->planEndInWindow()) {
+    linear_vel = heuristics::approachVelocityConstraint(
+      linear_vel, path, params_->min_approach_linear_velocity,
+      params_->approach_velocity_scaling_dist);
+  }
 
   // Limit linear velocities to be valid
   linear_vel = std::clamp(fabs(linear_vel), 0.0, params_->desired_linear_vel);

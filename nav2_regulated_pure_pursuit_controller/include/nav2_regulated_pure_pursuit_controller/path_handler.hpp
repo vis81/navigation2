@@ -81,6 +81,15 @@ public:
 
   nav_msgs::msg::Path getPlan() {return global_plan_;}
 
+  /**
+   * @brief Whether the last transformGlobalPlan() kept the global plan's
+   * final pose, i.e. the goal is inside the local window. The approach
+   * velocity ramp is only meaningful then: on a plan pruned at the costmap
+   * edge the "remaining distance" is the window size, not the distance to
+   * the goal, and a ramp longer than the window would cap speed everywhere.
+   */
+  bool planEndInWindow() const {return plan_end_in_window_;}
+
 protected:
   /**
    * Get the greatest extent of the costmap in meters from the center.
@@ -93,6 +102,7 @@ protected:
   std::shared_ptr<tf2_ros::Buffer> tf_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   nav_msgs::msg::Path global_plan_;
+  bool plan_end_in_window_{false};
 };
 
 }  // namespace nav2_regulated_pure_pursuit_controller
