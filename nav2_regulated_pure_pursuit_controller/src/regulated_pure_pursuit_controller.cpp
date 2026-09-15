@@ -292,9 +292,16 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
   // full speed and braked inside it. Regulate on the sharpest bend of the
   // path itself within a braking distance ahead, so the slow-down starts
   // before the corner and ends when the corner is behind the window.
+  //
+  // Speed only. regulation_curvature is signed and also steers (the
+  // angular velocity is linear_vel * curvature, and DWPP tracks it); the
+  // path curvature is a magnitude. Folding it into regulation_curvature
+  // made the robot steer by the sharpest bend ahead - always to the left -
+  // and it never got going (the sim stall that parked this feature).
+  double speed_curvature = regulation_curvature;
   if (params_->path_curvature_lookahead_dist > 0.0) {
-    regulation_curvature = std::max(
-      regulation_curvature,
+    speed_curvature = std::max(
+      std::fabs(regulation_curvature),
       maxPathCurvature(transformed_plan, params_->path_curvature_lookahead_dist));
   }
 
@@ -345,7 +352,7 @@ geometry_msgs::msg::TwistStamped RegulatedPurePursuitController::computeVelocity
       }
     }
     applyConstraints(
-      regulation_curvature, speed, pose_cost, transformed_plan,
+      speed_curvature, speed, pose_cost, transformed_plan,
       linear_vel, x_vel_sign);
 
     if (cancelling_) {
